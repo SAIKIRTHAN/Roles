@@ -8,7 +8,7 @@ const auth = require('../Middleware/auth')
 //   res.send('respond with a resource');
 // });
 router.post('/', user.createUser)
-router.get('/all', auth.authenticate, user.getAllUsers)
+router.get('/all',  user.getAllUsers)
 router.get('/', auth.authenticate, user.getUserById)
 router.delete('/', auth.authenticate, user.deleteUserById)
 router.put('/', auth.authenticate, user.updateUser)

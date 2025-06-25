@@ -27,7 +27,6 @@ exports.createUser = async (req, res) => {
 exports.getAllUsers = async (req, res) => {
     // const users = userDetails
     const data = await models.user.findAll({
-        where:{id:17},
     include:[{
         model:models.role
     }]    
