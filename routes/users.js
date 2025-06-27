@@ -14,5 +14,7 @@ router.delete('/', auth.authenticate, user.deleteUserById)
 router.put('/', auth.authenticate, user.updateUser)
 router.post('/login', user.login)
 router.get('/search',user.getUsersByNameSearch)
+router.post('/send-otp',user.sendOtp)
+router.post('/verify-otp',user.verifyOtp)
 
 module.exports = router;
