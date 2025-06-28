@@ -7,10 +7,11 @@ const { Op } = require('sequelize');
 
 exports.createUser = async (req, res) => {
     try {
-        const { emailId, phoneNumber, firstName, lastName, products, password } = req.body
+        const { emailId, phoneNumber, firstName, lastName,password, addressLine1, addressLine2, city, pincode, type, profilePicture } = req.body
         const existingUser = await models.user.findOne({
             where: { emailId }
         })
+        console.log(profilePicture)
 
         if (existingUser) {
             return res.status(409).send({ error: true, msg: "Email exists" })
@@ -18,7 +19,9 @@ exports.createUser = async (req, res) => {
         const salt = bcrypt.genSaltSync(saltRounds);
         const hashPassword = bcrypt.hashSync(password, salt);
         console.log(hashPassword)
-        const data = await models.user.create({ emailId, phoneNumber, firstName, lastName, products, password: hashPassword })
+        const data = await models.user.create({ emailId, phoneNumber, firstName, lastName, password: hashPassword, profile_picture: profilePicture })
+        const address = await models.Address.create({userId:data.id,addressLine1, addressLine2, city, pincode, type})
+        
         res.status(201).send({ data })
     } catch (error) {
         res.status(500).send({ e: error.message })
@@ -187,8 +190,15 @@ exports.verifyOtp = async (req, res) => {
         if (userOtp.otp == otp) {
             const requestedAt = moment(userOtp.expiry_time); // ISO string or Date object
             const now = moment();
+            const active = "ACTIVE"
             console.log(now.isAfter(requestedAt, 'minutes'))
             if (!now.isAfter(requestedAt, 'minutes')) {
+                await models.user.update({status:active}, {
+                    where:{
+                        id:userOtp.userId
+                    }
+                })
+
                 return res.status(200).send({ error: false, msg: "Otp verified Succesfully!" })
             } else {
                 return res.status(400).send({ error: true, msg: "Otp expired!" })

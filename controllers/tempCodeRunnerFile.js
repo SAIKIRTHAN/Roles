@@ -8,7 +8,7 @@ const { Op } = require('sequelize');
 exports.createUser = async (req, res) => {
     
     try {
-        const { emailId, phoneNumber, firstName, lastName, password, addressLine1, addressLine2, city, pincode, type} = req.body
+        const { emailId, phoneNumber, firstName, lastName, password} = req.body
         
 
         const existingUser = await models.user.findOne({
@@ -22,7 +22,6 @@ exports.createUser = async (req, res) => {
         const hashPassword = bcrypt.hashSync(password, salt);
         console.log(hashPassword)
         const data = await models.user.create({ emailId, phoneNumber, firstName, lastName, password: hashPassword})
-        const address = await models.Address.create({userId:data.id,addressLine1, addressLine2, city, pincode, type})
         res.status(201).send({ data })
     } catch (error) {
         res.status(500).send({ e: error.message })
