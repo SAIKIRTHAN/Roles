@@ -14,3 +14,4 @@ exports.authenticate = async(req,res,next)=>{
         return res.status(500).send({error:true,message:error.message})
     }
 }
+

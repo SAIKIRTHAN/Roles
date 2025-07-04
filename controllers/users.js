@@ -1,13 +1,19 @@
 const moment = require("moment")
 const bcrypt = require("bcrypt");
 const models = require("../models/index")
+// const user = require("../models/user")
 const saltRounds = 10;
 var jwt = require('jsonwebtoken');
 const { Op } = require('sequelize');
+const { sendMail } = require("../utils/nodemailer")
 
 exports.createUser = async (req, res) => {
+    console.log(req.body)
     try {
-        const { emailId, phoneNumber, firstName, lastName,password, addressLine1, addressLine2, city, pincode, type, profilePicture } = req.body
+        const { emailId, phoneNumber, firstName, lastName, password, addressLine1, addressLine2, city, pincode, type, profilePicture } = req.body
+        if(!emailId){
+            return res.status(400).send({error:true, msg:"Email is required"})
+        }
         const existingUser = await models.user.findOne({
             where: { emailId }
         })
@@ -16,21 +22,42 @@ exports.createUser = async (req, res) => {
         if (existingUser) {
             return res.status(409).send({ error: true, msg: "Email exists" })
         }
-        const salt = bcrypt.genSaltSync(saltRounds);
-        const hashPassword = bcrypt.hashSync(password, salt);
-        console.log(hashPassword)
-        const data = await models.user.create({ emailId, phoneNumber, firstName, lastName, password: hashPassword, profile_picture: profilePicture })
-        const address = await models.Address.create({userId:data.id,addressLine1, addressLine2, city, pincode, type})
-        
+        // const salt = bcrypt.genSaltSync(saltRounds);
+        // const hashPassword = bcrypt.hashSync(password, salt);
+        // console.log(hashPassword)
+        const data = await models.user.create({ emailId, phoneNumber, firstName, lastName, password: password, profile_picture: profilePicture })
+        const address = await models.Address.create({ userId: data.id, addressLine1, addressLine2, city, pincode, type })
+
         res.status(201).send({ data })
     } catch (error) {
+        if (error.name === 'SequelizeValidationError') {
+            return res.status(400).send({
+                error: true,
+                msg: "Validation failed",
+                details: error.errors.map(e => e.message)
+            });
+        }
         res.status(500).send({ e: error.message })
     }
 };
 
 exports.getAllUsers = async (req, res) => {
+    const { search } = req.query;
+    let whereClause = {}
     // const users = userDetails
+    if (search) {
+        whereClause = {
+            [Op.or]: [
+                { firstName: { [Op.iLike]: `%${search}%` } },
+                { lastName: { [Op.iLike]: `%${search}%` } },
+                { emailId: { [Op.iLike]: `%${search}%` } }
+            ]
+        }
+    }
     const data = await models.user.findAll({
+        where: whereClause,
+
+
         include: [{
             model: models.role
         }]
@@ -39,13 +66,14 @@ exports.getAllUsers = async (req, res) => {
     res.status(200).send({ data })
 };
 
+
 exports.updateUser = async (req, res) => {
     const userId = req.headers['x-user-id']
-    const { firstName, lastName, userRole } = req.body
-    const data = await models.user.update({ firstName, lastName, user_role: userRole }, {
+    const { firstName, lastName, userRole, password } = req.body
+    const data = await models.user.update({ firstName, lastName, user_role: userRole, password:password }, {
         where: {
             id: userId
-        }
+        },individualHooks: true,
     })
     res.status(200).send({ data })
     // res.send({data:users})
@@ -76,7 +104,7 @@ exports.login = async (req, res) => {
     try {
         const { emailId, password } = req.body
         const existingUser = await models.user.findOne({
-            where: { emailId }
+            where: { emailId, status: "ACTIVE" }
         })
 
         if (!existingUser) {
@@ -113,22 +141,22 @@ exports.login = async (req, res) => {
     }
 }
 
-exports.getUsersByNameSearch = async (req, res) => {
-    try {
-        const { search } = req.query;
-        const data = await models.user.findAll({
-            where: {
-                firstName: {
-                    [Op.iLike]: `%${search}%`
-                }
-            }
-        });
+// exports.getUsersByNameSearch = async (req, res) => {
+//     try {
+//         const { search } = req.query;
+//         const data = await models.user.findAll({
+//             where: {
+//                 firstName: {
+//                     [Op.iLike]: `%${search}%`
+//                 }
+//             }
+//         });
 
-        res.status(200).send({ data });
-    } catch (error) {
-        res.status(500).send({ error: true, msg: error.message });
-    }
-};
+//         res.status(200).send({ data });
+//     } catch (error) {
+//         res.status(500).send({ error: true, msg: error.message });
+//     }
+// };
 exports.sendOtp = async (req, res) => {
     try {
         const { emailId } = req.body;
@@ -154,7 +182,7 @@ exports.sendOtp = async (req, res) => {
                     userId: existingUser.id
                 }
             })
-            //send otp to email
+            sendMail(emailId, "your_otp", `otp is ${userOtp}`)
             return res.status(200).send({ msg: "OTP sent successfully!" });
         }
         const data = await models.Otp.create({ userId: existingUser.id, otp: userOtp, expiry_time })
@@ -193,9 +221,9 @@ exports.verifyOtp = async (req, res) => {
             const active = "ACTIVE"
             console.log(now.isAfter(requestedAt, 'minutes'))
             if (!now.isAfter(requestedAt, 'minutes')) {
-                await models.user.update({status:active}, {
-                    where:{
-                        id:userOtp.userId
+                await models.user.update({ status: active }, {
+                    where: {
+                        id: userOtp.userId
                     }
                 })
 

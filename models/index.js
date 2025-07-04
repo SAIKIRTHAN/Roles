@@ -16,6 +16,7 @@ if (config.use_env_variable) {
   sequelize = new Sequelize(config.database, config.username, config.password, config);
 }
 
+// Read all model files automatically except index.js
 fs
   .readdirSync(__dirname)
   .filter(file => {
@@ -31,12 +32,21 @@ fs
     db[model.name] = model;
   });
 
+// ✅ Manual registration (optional if files are outside current folder)
+const Product = require('./Product')(sequelize, Sequelize.DataTypes);
+const Category = require('./Category')(sequelize, Sequelize.DataTypes);
+
+db.Product = Product;
+db.Category = Category;
+
+// ✅ Set up associations
 Object.keys(db).forEach(modelName => {
   if (db[modelName].associate) {
     db[modelName].associate(db);
   }
 });
 
+// Add Sequelize instance and class to the db object
 db.sequelize = sequelize;
 db.Sequelize = Sequelize;
 
